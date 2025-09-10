@@ -6,6 +6,7 @@
 # ]
 # ///
 
+import argparse
 import asyncio
 import socket
 import subprocess
@@ -166,9 +167,19 @@ def run_diagnostics(hostname, port):
 
 
 def main():
-    # Server configuration
-    hostname = '127.0.0.1'
-    port = 1025  # Use port 1025 to avoid needing root privileges
+    parser = argparse.ArgumentParser(description='Simple email server that prints emails to console')
+    parser.add_argument('--host', default='127.0.0.1', 
+                        help='Hostname to bind to (default: 127.0.0.1, use 0.0.0.0 for all interfaces)')
+    parser.add_argument('--port', type=int, default=1025,
+                        help='Port to listen on (default: 1025)')
+    parser.add_argument('--external', action='store_true',
+                        help='Bind to all interfaces (equivalent to --host 0.0.0.0)')
+    
+    args = parser.parse_args()
+    
+    # Override host if --external is used
+    hostname = '0.0.0.0' if args.external else args.host
+    port = args.port
     
     # Run diagnostics first
     if not run_diagnostics(hostname, port):
@@ -180,7 +191,13 @@ def main():
     controller = Controller(handler, hostname=hostname, port=port)
     
     print(f"\n🚀 Email server starting on {hostname}:{port}")
-    print(f"📮 Send test emails to: test@localhost:{port}")
+    if hostname == '0.0.0.0':
+        local_ip = get_local_ip()
+        if local_ip:
+            print(f"📮 Accepting emails from all interfaces")
+            print(f"📮 External access: {local_ip}:{port}")
+    else:
+        print(f"📮 Send test emails to: test@localhost:{port}")
     print("Press Ctrl+C to stop the server\n")
     
     controller.start()
