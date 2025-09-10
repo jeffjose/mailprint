@@ -350,10 +350,6 @@ def main():
         # Create SSL context
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(args.cert, args.key)
-        if '/etc/letsencrypt/' in args.cert:
-            print(f"🔒 TLS enabled using Let's Encrypt certificate")
-        else:
-            print(f"🔒 TLS enabled using certificate: {args.cert}")
     
     # Run diagnostics first
     if not run_diagnostics(hostname, port):
@@ -362,6 +358,16 @@ def main():
     
     # Create and start the server
     handler = EmailHandler()
+    
+    # Determine certificate type for display
+    cert_type = None
+    if ssl_context:
+        if '/etc/letsencrypt/' in args.cert:
+            cert_type = "Let's Encrypt"
+        elif args.cert == 'mailserver.crt':
+            cert_type = "self-signed"
+        else:
+            cert_type = "custom"
     
     # Configure controller based on TLS settings
     if ssl_context:
@@ -378,7 +384,7 @@ def main():
     
     print(f"\n🚀 Email server starting on {hostname}:{port}")
     if ssl_context:
-        print(f"🔒 STARTTLS enabled - clients must use STARTTLS to send emails")
+        print(f"🔒 STARTTLS enabled ({cert_type} certificate) - clients must use STARTTLS to send emails")
     else:
         print(f"⚠️  TLS disabled - connections will be unencrypted")
     
