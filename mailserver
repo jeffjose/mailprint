@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Wrapper script for mailserver.py that handles uv with sudo
+
+# Check if running as root
+if [ "$EUID" -eq 0 ]; then
+    # Running as root - need to find uv
+    if command -v uv &> /dev/null; then
+        # uv is in PATH
+        uv run "$(dirname "$0")/mailserver.py" "$@"
+    elif [ -f /home/jeffjose/.local/bin/uv ]; then
+        # Try jeffjose's installation path
+        /home/jeffjose/.local/bin/uv run "$(dirname "$0")/mailserver.py" "$@"
+    elif [ -f /home/ubuntu/.local/bin/uv ]; then
+        # Try ubuntu user installation path
+        /home/ubuntu/.local/bin/uv run "$(dirname "$0")/mailserver.py" "$@"
+    elif [ -n "$SUDO_USER" ] && [ -f "/home/$SUDO_USER/.local/bin/uv" ]; then
+        # Try sudo user's home
+        "/home/$SUDO_USER/.local/bin/uv" run "$(dirname "$0")/mailserver.py" "$@"
+    else
+        echo "Error: uv not found. Please specify the path to uv or install it globally."
+        echo "You can also run: sudo -E env PATH=\$PATH $0 $@"
+        exit 1
+    fi
+else
+    # Not root - use uv normally
+    uv run "$(dirname "$0")/mailserver.py" "$@"
+fi
