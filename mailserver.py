@@ -60,17 +60,6 @@ class EmailHandler:
             return '500 Error processing message'
 
 
-def check_port_availability(hostname, port):
-    """Check if the port is available for binding"""
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(1)
-        result = sock.connect_ex((hostname, port))
-        sock.close()
-        return result != 0  # Port is available if connection fails
-    except Exception as e:
-        return False
-
 
 def get_local_ip():
     """Get the local IP address of this machine"""
@@ -118,15 +107,6 @@ def run_diagnostics(hostname, port):
     print("🔍 Running diagnostics...")
     print("-" * 60)
     
-    # Check port availability
-    port_available = check_port_availability(hostname, port)
-    if port_available:
-        print(f"✅ Port {port} is available for binding")
-    else:
-        print(f"❌ Port {port} appears to be in use")
-        print(f"   Try: lsof -i :{port} or netstat -tlnp | grep {port}")
-        return False
-    
     # Get local IP
     local_ip = get_local_ip()
     if local_ip:
@@ -168,17 +148,14 @@ def run_diagnostics(hostname, port):
 
 def main():
     parser = argparse.ArgumentParser(description='Simple email server that prints emails to console')
-    parser.add_argument('--host', default='127.0.0.1', 
-                        help='Hostname to bind to (default: 127.0.0.1, use 0.0.0.0 for all interfaces)')
+    parser.add_argument('--host', default='0.0.0.0', 
+                        help='Hostname to bind to (default: 0.0.0.0 for all interfaces)')
     parser.add_argument('--port', type=int, default=1025,
                         help='Port to listen on (default: 1025)')
-    parser.add_argument('--external', action='store_true',
-                        help='Bind to all interfaces (equivalent to --host 0.0.0.0)')
     
     args = parser.parse_args()
     
-    # Override host if --external is used
-    hostname = '0.0.0.0' if args.external else args.host
+    hostname = args.host
     port = args.port
     
     # Run diagnostics first
