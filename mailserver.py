@@ -227,7 +227,41 @@ def run_diagnostics(hostname, port):
     return True
 
 
+def find_letsencrypt_cert():
+    """Try to find Let's Encrypt certificates automatically"""
+    hostname = socket.getfqdn()
+    
+    # Common Let's Encrypt paths to check
+    possible_paths = [
+        (f'/etc/letsencrypt/live/{hostname}/fullchain.pem', 
+         f'/etc/letsencrypt/live/{hostname}/privkey.pem'),
+        # Also check domain without subdomain
+        (f'/etc/letsencrypt/live/{".".join(hostname.split(".")[-2:])}/fullchain.pem',
+         f'/etc/letsencrypt/live/{".".join(hostname.split(".")[-2:])}/privkey.pem') if '.' in hostname else (None, None),
+        # Check for any cert in Let's Encrypt directory
+        ('/etc/letsencrypt/live/*/fullchain.pem', '/etc/letsencrypt/live/*/privkey.pem'),
+    ]
+    
+    for cert_path, key_path in possible_paths:
+        if cert_path and key_path:
+            # Handle wildcards
+            if '*' in cert_path:
+                import glob
+                certs = glob.glob(cert_path)
+                keys = glob.glob(key_path)
+                if certs and keys:
+                    return certs[0], keys[0]
+            elif os.path.exists(cert_path) and os.path.exists(key_path):
+                return cert_path, key_path
+    
+    # Fallback to local self-signed
+    return 'mailserver.crt', 'mailserver.key'
+
+
 def main():
+    # Auto-detect Let's Encrypt certificates
+    default_cert, default_key = find_letsencrypt_cert()
+    
     parser = argparse.ArgumentParser(description='Simple email server that prints emails to console')
     parser.add_argument('--host', default='0.0.0.0', 
                         help='Hostname to bind to (default: 0.0.0.0 for all interfaces)')
@@ -237,10 +271,10 @@ def main():
                         help='Enable TLS/STARTTLS support (default: enabled for port 587)')
     parser.add_argument('--no-tls', dest='tls', action='store_false',
                         help='Disable TLS/STARTTLS support')
-    parser.add_argument('--cert', default='mailserver.crt',
-                        help='Path to TLS certificate file (default: mailserver.crt)')
-    parser.add_argument('--key', default='mailserver.key',
-                        help='Path to TLS private key file (default: mailserver.key)')
+    parser.add_argument('--cert', default=default_cert,
+                        help=f'Path to TLS certificate file (default: {default_cert})')
+    parser.add_argument('--key', default=default_key,
+                        help=f'Path to TLS private key file (default: {default_key})')
     parser.add_argument('--generate-cert', action='store_true',
                         help='Generate a self-signed certificate if none exists')
     
@@ -252,12 +286,27 @@ def main():
     # Setup TLS if enabled
     ssl_context = None
     if args.tls:
+        # Check if Let's Encrypt certs are being used
+        if '/etc/letsencrypt/' in args.cert:
+            if os.path.exists(args.cert) and os.path.exists(args.key):
+                print(f"🔒 Found Let's Encrypt certificate for domain")
+                print(f"   Certificate: {args.cert}")
+                print(f"   Private key: {args.key}")
+            else:
+                print(f"⚠️  Let's Encrypt path configured but certificates not found")
+                print(f"   Run: sudo certbot certonly --standalone -d {socket.getfqdn()}")
+                # Fall back to self-signed
+                args.cert = 'mailserver.crt'
+                args.key = 'mailserver.key'
+                args.generate_cert = True
+        
         # Check if we need to generate certificates
         if args.generate_cert or (not os.path.exists(args.cert) or not os.path.exists(args.key)):
-            print("🔒 Generating self-signed certificate for TLS...")
-            cert_file, key_file = generate_self_signed_cert(args.cert, args.key)
-            print(f"   ✅ Certificate generated: {cert_file}")
-            print(f"   ✅ Private key generated: {key_file}")
+            if args.cert == 'mailserver.crt':  # Only generate if using default local paths
+                print("🔒 Generating self-signed certificate for TLS...")
+                cert_file, key_file = generate_self_signed_cert(args.cert, args.key)
+                print(f"   ✅ Certificate generated: {cert_file}")
+                print(f"   ✅ Private key generated: {key_file}")
         
         # Check if certificates exist
         if not os.path.exists(args.cert) or not os.path.exists(args.key):
@@ -271,7 +320,10 @@ def main():
         # Create SSL context
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(args.cert, args.key)
-        print(f"🔒 TLS enabled using certificate: {args.cert}")
+        if '/etc/letsencrypt/' in args.cert:
+            print(f"🔒 TLS enabled using Let's Encrypt certificate")
+        else:
+            print(f"🔒 TLS enabled using certificate: {args.cert}")
     
     # Run diagnostics first
     if not run_diagnostics(hostname, port):
