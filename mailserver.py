@@ -150,8 +150,8 @@ def main():
     parser = argparse.ArgumentParser(description='Simple email server that prints emails to console')
     parser.add_argument('--host', default='0.0.0.0', 
                         help='Hostname to bind to (default: 0.0.0.0 for all interfaces)')
-    parser.add_argument('--port', type=int, default=1025,
-                        help='Port to listen on (default: 1025)')
+    parser.add_argument('--port', type=int, default=25,
+                        help='Port to listen on (default: 25)')
     
     args = parser.parse_args()
     
