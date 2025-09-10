@@ -244,14 +244,33 @@ def run_diagnostics(hostname, port):
             print(f"  telnet {hostname} {port}")
             print(f"  swaks --to test@localhost --server {hostname}:{port}")
         
-        if local_ip:
+        # Get external IP for testing commands
+        external_ip = get_external_ip()
+        test_ip = external_ip if external_ip else local_ip
+        
+        if test_ip:
             print(f"\nExternal testing (from another machine):")
-            if port == 587:
-                print(f"  swaks --to test@localhost --server {local_ip}:{port} --tls")
-                print(f"  openssl s_client -starttls smtp -connect {local_ip}:{port}")
+            if external_ip:
+                print(f"  # From internet (using external IP):")
             else:
-                print(f"  telnet {local_ip} {port}")
-                print(f"  swaks --to test@localhost --server {local_ip}:{port}")
+                print(f"  # From local network (external IP unavailable):")
+            
+            if port == 587:
+                print(f"  swaks --to test@localhost --server {test_ip}:{port} --tls")
+                print(f"  openssl s_client -starttls smtp -connect {test_ip}:{port}")
+            else:
+                print(f"  telnet {test_ip} {port}")
+                print(f"  swaks --to test@localhost --server {test_ip}:{port}")
+            
+            if local_ip and local_ip != test_ip:
+                print(f"\n  # From local network:")
+                if port == 587:
+                    print(f"  swaks --to test@localhost --server {local_ip}:{port} --tls")
+                    print(f"  openssl s_client -starttls smtp -connect {local_ip}:{port}")
+                else:
+                    print(f"  telnet {local_ip} {port}")
+                    print(f"  swaks --to test@localhost --server {local_ip}:{port}")
+            
             print(f"\n⚠️  External access requires:")
             print(f"  1. Port {port} open in firewall")
             print(f"  2. No NAT/router blocking if testing from internet")
