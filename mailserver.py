@@ -73,6 +73,14 @@ class EmailHandler:
 
 def generate_self_signed_cert(cert_file='mailserver.crt', key_file='mailserver.key'):
     """Generate a self-signed certificate for TLS"""
+    import datetime
+    import ipaddress
+    from cryptography import x509
+    from cryptography.x509.oid import NameOID
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives import serialization
+    
     # Generate private key
     private_key = rsa.generate_private_key(
         public_exponent=65537,
@@ -97,14 +105,14 @@ def generate_self_signed_cert(cert_file='mailserver.crt', key_file='mailserver.k
     ).serial_number(
         x509.random_serial_number()
     ).not_valid_before(
-        datetime.datetime.utcnow()
+        datetime.datetime.now(datetime.timezone.utc)
     ).not_valid_after(
-        datetime.datetime.utcnow() + datetime.timedelta(days=365)
+        datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=365)
     ).add_extension(
         x509.SubjectAlternativeName([
             x509.DNSName("localhost"),
             x509.DNSName(socket.gethostname()),
-            x509.IPAddress(socket.inet_aton("127.0.0.1")),
+            x509.IPAddress(ipaddress.IPv4Address("127.0.0.1")),
         ]),
         critical=False,
     ).sign(private_key, hashes.SHA256())
@@ -286,27 +294,49 @@ def main():
     # Setup TLS if enabled
     ssl_context = None
     if args.tls:
+        # Show certificate type being used
+        print("\n📋 Certificate Configuration:")
+        
         # Check if Let's Encrypt certs are being used
         if '/etc/letsencrypt/' in args.cert:
             if os.path.exists(args.cert) and os.path.exists(args.key):
-                print(f"🔒 Found Let's Encrypt certificate for domain")
-                print(f"   Certificate: {args.cert}")
-                print(f"   Private key: {args.key}")
+                print(f"   🔒 Using Let's Encrypt certificate")
+                print(f"      Certificate: {args.cert}")
+                print(f"      Private key: {args.key}")
             else:
-                print(f"⚠️  Let's Encrypt path configured but certificates not found")
-                print(f"   Run: sudo certbot certonly --standalone -d {socket.getfqdn()}")
+                print(f"   ⚠️  Let's Encrypt path configured but certificates not found")
+                print(f"      Expected: {args.cert}")
+                print(f"      To obtain: sudo certbot certonly --standalone -d {socket.getfqdn()}")
+                print(f"   📝 Falling back to self-signed certificate...")
                 # Fall back to self-signed
                 args.cert = 'mailserver.crt'
                 args.key = 'mailserver.key'
                 args.generate_cert = True
+        elif args.cert == 'mailserver.crt':
+            print(f"   🔐 Using self-signed certificate")
+            print(f"      Certificate: {args.cert}")
+            print(f"      Private key: {args.key}")
+        else:
+            print(f"   📜 Using custom certificate")
+            print(f"      Certificate: {args.cert}")
+            print(f"      Private key: {args.key}")
         
         # Check if we need to generate certificates
         if args.generate_cert or (not os.path.exists(args.cert) or not os.path.exists(args.key)):
             if args.cert == 'mailserver.crt':  # Only generate if using default local paths
-                print("🔒 Generating self-signed certificate for TLS...")
-                cert_file, key_file = generate_self_signed_cert(args.cert, args.key)
-                print(f"   ✅ Certificate generated: {cert_file}")
-                print(f"   ✅ Private key generated: {key_file}")
+                try:
+                    print("🔒 Generating self-signed certificate for TLS...")
+                    cert_file, key_file = generate_self_signed_cert(args.cert, args.key)
+                    print(f"   ✅ Certificate generated: {cert_file}")
+                    print(f"   ✅ Private key generated: {key_file}")
+                except Exception as e:
+                    print(f"\n❌ Failed to generate self-signed certificate:")
+                    print(f"   Error: {str(e)}")
+                    print(f"\n   Possible solutions:")
+                    print(f"   1. Install cryptography: pip install cryptography")
+                    print(f"   2. Check file permissions in current directory")
+                    print(f"   3. Use --no-tls to run without TLS support")
+                    sys.exit(1)
         
         # Check if certificates exist
         if not os.path.exists(args.cert) or not os.path.exists(args.key):
