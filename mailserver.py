@@ -144,6 +144,34 @@ def get_local_ip():
         return None
 
 
+def get_external_ip():
+    """Get the external IP address of this machine"""
+    import urllib.request
+    import json
+    
+    # Try multiple services in case one is down
+    services = [
+        ('https://ifconfig.co/json', 'ip'),
+        ('https://api.ipify.org?format=json', 'ip'),
+        ('https://ipinfo.io/json', 'ip'),
+    ]
+    
+    for url, field in services:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                return data.get(field)
+        except:
+            continue
+    
+    # Fallback to text-based service
+    try:
+        with urllib.request.urlopen('https://ifconfig.co/ip', timeout=5) as response:
+            return response.read().decode().strip()
+    except:
+        return None
+
+
 def check_firewall_status():
     """Check firewall status (Linux only for now)"""
     firewall_info = []
@@ -389,10 +417,19 @@ def main():
         print(f"⚠️  TLS disabled - connections will be unencrypted")
     
     if hostname == '0.0.0.0':
+        print(f"📮 Accepting emails from all interfaces")
+        
+        # Show both local and external IPs
         local_ip = get_local_ip()
+        external_ip = get_external_ip()
+        
         if local_ip:
-            print(f"📮 Accepting emails from all interfaces")
-            print(f"📮 External access: {local_ip}:{port}")
+            print(f"📮 Local network access: {local_ip}:{port}")
+        
+        if external_ip:
+            print(f"🌐 External access: {external_ip}:{port}")
+        elif local_ip:
+            print(f"🌐 External IP: Unable to determine (check with 'curl ifconfig.co')")
     else:
         print(f"📮 Send test emails to: test@localhost:{port}")
     
