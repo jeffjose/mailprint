@@ -560,6 +560,11 @@ def main():
                 self.thread = threading.Thread(target=self._run)
                 self.thread.daemon = True
                 self.thread.start()
+                # Give it a moment to start and potentially fail
+                import time
+                time.sleep(0.5)
+                if not self.thread.is_alive():
+                    raise OSError("[Errno 98] Address already in use")
                 
             def _run(self):
                 loop = asyncio.new_event_loop()
