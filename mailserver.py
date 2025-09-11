@@ -439,15 +439,16 @@ def main():
     
     # Configure controller based on TLS settings
     if ssl_context:
-        # For STARTTLS, we need to configure it properly
+        # For STARTTLS, configure properly
         controller = Controller(
             handler, 
             hostname=hostname, 
             port=port,
-            require_starttls=False,  # Don't require STARTTLS, make it optional
             ssl_context=ssl_context,
-            auth_required=False,  # No authentication required
-            decode_data=False  # Handle binary data properly
+            require_starttls=False,  # Optional STARTTLS
+            auth_required=False,
+            decode_data=False,
+            enable_SMTPUTF8=True
         )
     else:
         controller = Controller(
@@ -455,7 +456,8 @@ def main():
             hostname=hostname, 
             port=port,
             auth_required=False,
-            decode_data=False
+            decode_data=False,
+            enable_SMTPUTF8=True
         )
     
     # Try to start the server first (fail fast if port is in use)
