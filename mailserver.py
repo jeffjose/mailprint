@@ -461,7 +461,34 @@ def main():
             decode_data=False
         )
     
-    print(f"\n🚀 Email server starting on {hostname}:{port}")
+    # Try to start the server first (fail fast if port is in use)
+    try:
+        controller.start()
+    except PermissionError as e:
+        print(f"\n❌ Permission denied: Cannot bind to {hostname}:{port}")
+        if port < 1024:
+            print(f"   Port {port} requires root privileges.")
+            print(f"\n   Try one of these:")
+            print(f"   • sudo ./mailserver")
+            print(f"   • ./mailserver --port 1025  (or any port >= 1024)")
+        else:
+            print(f"   Another process may be using port {port}.")
+            print(f"   Check with: lsof -i :{port}")
+        sys.exit(1)
+    except OSError as e:
+        if "Address already in use" in str(e):
+            print(f"\n❌ Port {port} is already in use")
+            print(f"   Check what's using it: lsof -i :{port}")
+            print(f"   Or try a different port: ./mailserver --port {port + 1000}")
+        else:
+            print(f"\n❌ Failed to start server: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Unexpected error starting server: {e}")
+        sys.exit(1)
+    
+    # Server started successfully, now show the success messages
+    print(f"\n✅ Email server started successfully on {hostname}:{port}")
     if ssl_context:
         print(f"🔒 STARTTLS available ({cert_type} certificate) - clients can optionally use STARTTLS")
     else:
@@ -489,32 +516,7 @@ def main():
     elif port == 25:
         print(f"📝 Port 25 is the standard SMTP port (usually for server-to-server)")
     
-    print("Press Ctrl+C to stop the server\n")
-    
-    try:
-        controller.start()
-    except PermissionError as e:
-        print(f"\n❌ Permission denied: Cannot bind to {hostname}:{port}")
-        if port < 1024:
-            print(f"   Port {port} requires root privileges.")
-            print(f"\n   Try one of these:")
-            print(f"   • sudo ./mailserver")
-            print(f"   • ./mailserver --port 1025  (or any port >= 1024)")
-        else:
-            print(f"   Another process may be using port {port}.")
-            print(f"   Check with: lsof -i :{port}")
-        sys.exit(1)
-    except OSError as e:
-        if "Address already in use" in str(e):
-            print(f"\n❌ Port {port} is already in use")
-            print(f"   Check what's using it: lsof -i :{port}")
-            print(f"   Or try a different port: ./mailserver --port {port + 1000}")
-        else:
-            print(f"\n❌ Failed to start server: {e}")
-        sys.exit(1)
-    except Exception as e:
-        print(f"\n❌ Unexpected error starting server: {e}")
-        sys.exit(1)
+    print("\nPress Ctrl+C to stop the server\n")
     
     try:
         # Keep the server running
