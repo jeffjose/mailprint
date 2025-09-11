@@ -437,20 +437,143 @@ def main():
         else:
             cert_type = "custom"
     
-    # Configure controller based on TLS settings
+    # Use custom server implementation when TLS is enabled to fix greeting bug
     if ssl_context:
-        # For STARTTLS, configure properly
-        controller = Controller(
-            handler, 
-            hostname=hostname, 
-            port=port,
-            ssl_context=ssl_context,
-            require_starttls=False,  # Optional STARTTLS
-            auth_required=False,
-            decode_data=False,
-            enable_SMTPUTF8=True
-        )
+        # Use our custom implementation that properly sends SMTP greeting
+        import asyncio
+        
+        class WorkingSMTPServer:
+            def __init__(self, handler, hostname, port, ssl_context):
+                self.handler = handler
+                self.hostname = hostname
+                self.port = port
+                self.ssl_context = ssl_context
+                self.server = None
+                
+            async def handle_client(self, reader, writer):
+                """Handle a client connection with proper SMTP greeting"""
+                client_addr = writer.get_extra_info('peername')
+                
+                try:
+                    # Send initial greeting immediately - this fixes the bug!
+                    writer.write(b"220 Mail Server Ready\r\n")
+                    await writer.drain()
+                    
+                    envelope = type('Envelope', (), {
+                        'mail_from': None,
+                        'rcpt_tos': [],
+                        'content': b''
+                    })()
+                    
+                    session = type('Session', (), {'peer': client_addr})()
+                    
+                    while True:
+                        try:
+                            data = await asyncio.wait_for(reader.readline(), timeout=30.0)
+                        except asyncio.TimeoutError:
+                            break
+                            
+                        if not data:
+                            break
+                            
+                        command = data.decode('utf-8', errors='ignore').strip()
+                        parts = command.split(None, 1)
+                        if not parts:
+                            continue
+                            
+                        cmd = parts[0].upper()
+                        arg = parts[1] if len(parts) > 1 else ''
+                        
+                        if cmd in ("EHLO", "HELO"):
+                            response = f"250-{socket.getfqdn()}\r\n250-8BITMIME\r\n"
+                            if self.ssl_context:
+                                response += "250-STARTTLS\r\n"
+                            response += "250 OK\r\n"
+                            writer.write(response.encode())
+                            
+                        elif cmd == "STARTTLS" and self.ssl_context:
+                            writer.write(b"220 Ready to start TLS\r\n")
+                            await writer.drain()
+                            
+                            # Upgrade to TLS
+                            transport = writer.transport
+                            protocol = transport.get_protocol()
+                            new_transport = await asyncio.get_event_loop().start_tls(
+                                transport, protocol, self.ssl_context, server_side=True
+                            )
+                            writer._transport = new_transport
+                            
+                        elif cmd == "MAIL":
+                            envelope.mail_from = arg.replace('FROM:', '').strip('<>')
+                            writer.write(b"250 OK\r\n")
+                            
+                        elif cmd == "RCPT":
+                            envelope.rcpt_tos.append(arg.replace('TO:', '').strip('<>'))
+                            writer.write(b"250 OK\r\n")
+                            
+                        elif cmd == "DATA":
+                            writer.write(b"354 End data with <CR><LF>.<CR><LF>\r\n")
+                            await writer.drain()
+                            
+                            # Collect email data
+                            email_data = []
+                            while True:
+                                line = await reader.readline()
+                                if line == b".\r\n":
+                                    break
+                                email_data.append(line)
+                            
+                            envelope.content = b''.join(email_data)
+                            
+                            # Call the handler
+                            result = await self.handler.handle_DATA(None, session, envelope)
+                            writer.write(f"{result}\r\n".encode())
+                            
+                        elif cmd == "QUIT":
+                            writer.write(b"221 Bye\r\n")
+                            await writer.drain()
+                            break
+                        else:
+                            writer.write(b"500 Command not recognized\r\n")
+                        
+                        await writer.drain()
+                        
+                except Exception as e:
+                    pass  # Silently handle connection errors
+                finally:
+                    try:
+                        writer.close()
+                        await writer.wait_closed()
+                    except:
+                        pass
+            
+            async def start_async(self):
+                self.server = await asyncio.start_server(
+                    self.handle_client, self.hostname, self.port
+                )
+                async with self.server:
+                    await self.server.serve_forever()
+                    
+            def start(self):
+                # Run in a new thread like Controller does
+                import threading
+                self.thread = threading.Thread(target=self._run)
+                self.thread.daemon = True
+                self.thread.start()
+                
+            def _run(self):
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(self.start_async())
+                
+            def stop(self):
+                if self.server:
+                    self.server.close()
+        
+        # Use working implementation for TLS
+        controller = WorkingSMTPServer(handler, hostname, port, ssl_context)
     else:
+        # Use standard controller for non-TLS
         controller = Controller(
             handler, 
             hostname=hostname, 
