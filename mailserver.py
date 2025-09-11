@@ -447,15 +447,23 @@ def main():
             handler, 
             hostname=hostname, 
             port=port,
-            require_starttls=True,
-            ssl_context=ssl_context
+            require_starttls=False,  # Don't require STARTTLS, make it optional
+            ssl_context=ssl_context,
+            auth_required=False,  # No authentication required
+            decode_data=False  # Handle binary data properly
         )
     else:
-        controller = Controller(handler, hostname=hostname, port=port)
+        controller = Controller(
+            handler, 
+            hostname=hostname, 
+            port=port,
+            auth_required=False,
+            decode_data=False
+        )
     
     print(f"\n🚀 Email server starting on {hostname}:{port}")
     if ssl_context:
-        print(f"🔒 STARTTLS enabled ({cert_type} certificate) - clients must use STARTTLS to send emails")
+        print(f"🔒 STARTTLS available ({cert_type} certificate) - clients can optionally use STARTTLS")
     else:
         print(f"⚠️  TLS disabled - connections will be unencrypted")
     
