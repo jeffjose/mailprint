@@ -422,10 +422,7 @@ def main():
         ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         ssl_context.load_cert_chain(args.cert, args.key)
     
-    # Run diagnostics first
-    if not run_diagnostics(hostname, port):
-        print("\n❌ Diagnostics failed. Please fix the issues above before starting the server.")
-        sys.exit(1)
+    # Skip diagnostics - too verbose
     
     # Create and start the server
     handler = EmailHandler()
@@ -487,36 +484,13 @@ def main():
         print(f"\n❌ Unexpected error starting server: {e}")
         sys.exit(1)
     
-    # Server started successfully, now show the success messages
-    print(f"\n✅ Email server started successfully on {hostname}:{port}")
-    if ssl_context:
-        print(f"🔒 STARTTLS available ({cert_type} certificate) - clients can optionally use STARTTLS")
-    else:
-        print(f"⚠️  TLS disabled - connections will be unencrypted")
+    # Server started successfully, show minimal messages
+    external_ip = get_external_ip() or "unknown"
     
+    print(f"\n✅ Mail server started on port {port}")
     if hostname == '0.0.0.0':
-        print(f"📮 Accepting emails from all interfaces")
-        
-        # Show both local and external IPs
-        local_ip = get_local_ip()
-        external_ip = get_external_ip()
-        
-        if local_ip:
-            print(f"📮 Local network access: {local_ip}:{port}")
-        
-        if external_ip:
-            print(f"🌐 External access: {external_ip}:{port}")
-        elif local_ip:
-            print(f"🌐 External IP: Unable to determine (check with 'curl ifconfig.co')")
-    else:
-        print(f"📮 Send test emails to: test@localhost:{port}")
-    
-    if port == 587:
-        print(f"📝 Port 587 is the standard SMTP submission port (with STARTTLS)")
-    elif port == 25:
-        print(f"📝 Port 25 is the standard SMTP port (usually for server-to-server)")
-    
-    print("\nPress Ctrl+C to stop the server\n")
+        print(f"📧 Test: swaks --to test@localhost --from sender@example.com --server {external_ip}:{port}")
+    print("Press Ctrl+C to stop\n")
     
     try:
         # Keep the server running
