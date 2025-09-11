@@ -12,7 +12,6 @@ import ssl
 import sys
 from pathlib import Path
 from aiosmtpd.controller import Controller
-from aiosmtpd.smtp import SMTP as SMTPServer
 from email import message_from_bytes
 from email.policy import default
 
@@ -56,34 +55,6 @@ class EmailHandler:
             return '500 Error processing message'
 
 
-class CustomSMTP(SMTPServer):
-    """Custom SMTP server that properly handles STARTTLS"""
-    
-    async def smtp_STARTTLS(self, arg):
-        """Handle STARTTLS command"""
-        if not self.tls_context:
-            await self.push('454 TLS not available')
-            return
-        
-        if self.transport.get_extra_info('sslcontext'):
-            await self.push('554 TLS already active')
-            return
-            
-        await self.push('220 Ready to start TLS')
-        
-        # Upgrade connection to TLS
-        try:
-            new_transport = await self.loop.start_tls(
-                self.transport,
-                self.protocol,
-                self.tls_context,
-                server_side=True
-            )
-            self.transport = new_transport
-        except Exception as e:
-            print(f"TLS upgrade failed: {e}")
-
-
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='SMTP server with STARTTLS')
@@ -108,7 +79,7 @@ def main():
     else:
         print(f"⚠️  Certificate not found, running without TLS")
     
-    # Create controller
+    # Create controller - remove smtp_class as it's not valid
     controller = Controller(
         handler,
         hostname=args.host,
@@ -116,8 +87,7 @@ def main():
         ssl_context=ssl_context,
         auth_required=False,
         require_starttls=False,  # Make STARTTLS optional
-        decode_data=False,
-        smtp_class=CustomSMTP
+        decode_data=False
     )
     
     try:
