@@ -228,21 +228,33 @@ def run_diagnostics(hostname, port):
         print("Local testing only:")
         if port == 587:
             print(f"  # For port 587 with STARTTLS:")
-            print(f"  swaks --to test@localhost --server 127.0.0.1:{port} --tls")
+            print(f"  swaks --to test@localhost --from sender@example.com \\")
+            print(f"    --server 127.0.0.1:{port} --tls \\")
+            print(f"    --header 'Subject: Test Email' \\")
+            print(f"    --body 'This is a test email body'")
             print(f"  openssl s_client -starttls smtp -connect 127.0.0.1:{port}")
         else:
             print(f"  telnet 127.0.0.1 {port}")
-            print(f"  swaks --to test@localhost --server 127.0.0.1:{port}")
+            print(f"  swaks --to test@localhost --from sender@example.com \\")
+            print(f"    --server 127.0.0.1:{port} \\")
+            print(f"    --header 'Subject: Test Email' \\")
+            print(f"    --body 'This is a test email body'")
         print(f"  python test_email.py  # If you have a test script")
     else:
         print("Local testing:")
         if port == 587:
             print(f"  # For port 587 with STARTTLS:")
-            print(f"  swaks --to test@localhost --server {hostname}:{port} --tls")
+            print(f"  swaks --to test@localhost --from sender@example.com \\")
+            print(f"    --server {hostname}:{port} --tls \\")
+            print(f"    --header 'Subject: Test Email' \\")
+            print(f"    --body 'This is a test email body'")
             print(f"  openssl s_client -starttls smtp -connect {hostname}:{port}")
         else:
             print(f"  telnet {hostname} {port}")
-            print(f"  swaks --to test@localhost --server {hostname}:{port}")
+            print(f"  swaks --to test@localhost --from sender@example.com \\")
+            print(f"    --server {hostname}:{port} \\")
+            print(f"    --header 'Subject: Test Email' \\")
+            print(f"    --body 'This is a test email body'")
         
         # Get external IP for testing commands
         external_ip = get_external_ip()
@@ -256,20 +268,32 @@ def run_diagnostics(hostname, port):
                 print(f"  # From local network (external IP unavailable):")
             
             if port == 587:
-                print(f"  swaks --to test@localhost --server {test_ip}:{port} --tls")
+                print(f"  swaks --to test@localhost --from sender@example.com \\")
+                print(f"    --server {test_ip}:{port} --tls \\")
+                print(f"    --header 'Subject: Test Email' \\")
+                print(f"    --body 'This is a test email body'")
                 print(f"  openssl s_client -starttls smtp -connect {test_ip}:{port}")
             else:
                 print(f"  telnet {test_ip} {port}")
-                print(f"  swaks --to test@localhost --server {test_ip}:{port}")
+                print(f"  swaks --to test@localhost --from sender@example.com \\")
+                print(f"    --server {test_ip}:{port} \\")
+                print(f"    --header 'Subject: Test Email' \\")
+                print(f"    --body 'This is a test email body'")
             
             if local_ip and local_ip != test_ip:
                 print(f"\n  # From local network:")
                 if port == 587:
-                    print(f"  swaks --to test@localhost --server {local_ip}:{port} --tls")
+                    print(f"  swaks --to test@localhost --from sender@example.com \\")
+                    print(f"    --server {local_ip}:{port} --tls \\")
+                    print(f"    --header 'Subject: Test Email' \\")
+                    print(f"    --body 'This is a test email body'")
                     print(f"  openssl s_client -starttls smtp -connect {local_ip}:{port}")
                 else:
                     print(f"  telnet {local_ip} {port}")
-                    print(f"  swaks --to test@localhost --server {local_ip}:{port}")
+                    print(f"  swaks --to test@localhost --from sender@example.com \\")
+                    print(f"    --server {local_ip}:{port} \\")
+                    print(f"    --header 'Subject: Test Email' \\")
+                    print(f"    --body 'This is a test email body'")
             
             print(f"\n⚠️  External access requires:")
             print(f"  1. Port {port} open in firewall")
