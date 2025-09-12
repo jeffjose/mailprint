@@ -85,21 +85,21 @@ async def receive_email_alt(email: Email):
 
 def main():
     parser = argparse.ArgumentParser(description='HTTP/HTTPS server that receives and prints emails')
-    parser.add_argument('--port', type=int, default=80,
-                        help='Port to listen on (default: 80 for HTTP, 443 for HTTPS)')
+    parser.add_argument('--port', type=int, default=443,
+                        help='Port to listen on (default: 443 for HTTPS)')
     parser.add_argument('--host', default='0.0.0.0',
                         help='Host to bind to (default: 0.0.0.0)')
-    parser.add_argument('--tls', action='store_true',
-                        help='Enable HTTPS/TLS (requires certificates)')
+    parser.add_argument('--no-tls', action='store_true',
+                        help='Disable HTTPS/TLS and use plain HTTP')
     parser.add_argument('--cert', default='/etc/letsencrypt/live/telemetry.fyi/fullchain.pem',
                         help='Path to SSL certificate (default: /etc/letsencrypt/live/telemetry.fyi/fullchain.pem)')
     parser.add_argument('--key', default='/etc/letsencrypt/live/telemetry.fyi/privkey.pem',
                         help='Path to SSL private key (default: /etc/letsencrypt/live/telemetry.fyi/privkey.pem)')
     args = parser.parse_args()
     
-    # If TLS is requested and no port specified, default to 443
-    if args.tls and args.port == 80:
-        args.port = 443
+    # If no-tls is specified and port is still 443, switch to 80
+    if args.no_tls and args.port == 443:
+        args.port = 80
     
     # Check if we need root for port < 1024
     if args.port < 1024 and sys.platform != 'win32':
@@ -109,9 +109,9 @@ def main():
             print(f"   Run with: sudo {' '.join(sys.argv)}")
             sys.exit(1)
     
-    # Setup SSL if TLS is enabled
+    # Setup SSL by default (unless --no-tls is specified)
     ssl_context = None
-    if args.tls:
+    if not args.no_tls:
         if not os.path.exists(args.cert) or not os.path.exists(args.key):
             print(f"❌ Certificate files not found:")
             print(f"   Cert: {args.cert}")
