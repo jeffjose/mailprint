@@ -138,10 +138,10 @@ def main():
     
     try:
         if ssl_context:
-            uvicorn.run(app, host=args.host, port=args.port, log_level="error",
+            uvicorn.run(app, host=args.host, port=args.port, log_level="info",
                        ssl_keyfile=args.key, ssl_certfile=args.cert)
         else:
-            uvicorn.run(app, host=args.host, port=args.port, log_level="error")
+            uvicorn.run(app, host=args.host, port=args.port, log_level="info")
     except KeyboardInterrupt:
         print("\n✋ Server stopped")
     except OSError as e:
