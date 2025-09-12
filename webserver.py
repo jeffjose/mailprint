@@ -39,6 +39,10 @@ async def root():
 async def health():
     return {"status": "healthy", "service": "email-receiver"}
 
+@app.get("/email")
+async def email_info():
+    return {"message": "Email endpoint ready. Use POST to submit emails.", "status": "ready"}
+
 @app.post("/email")
 async def receive_email(email: Email):
     """Receive and print email"""
