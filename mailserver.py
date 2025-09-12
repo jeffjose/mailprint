@@ -344,10 +344,10 @@ def main():
     parser = argparse.ArgumentParser(description='Simple email server that prints emails to console')
     parser.add_argument('--host', default='0.0.0.0', 
                         help='Hostname to bind to (default: 0.0.0.0 for all interfaces)')
-    parser.add_argument('--port', type=int, default=587,
-                        help='Port to listen on (default: 587 for SMTP submission with STARTTLS)')
+    parser.add_argument('--port', type=int, default=25,
+                        help='Port to listen on (default: 25 for SMTP server-to-server delivery)')
     parser.add_argument('--tls', action='store_true', default=True,
-                        help='Enable TLS/STARTTLS support (default: enabled for port 587)')
+                        help='Enable TLS/STARTTLS support (default: enabled)')
     parser.add_argument('--no-tls', dest='tls', action='store_false',
                         help='Disable TLS/STARTTLS support')
     parser.add_argument('--cert', default=default_cert,
