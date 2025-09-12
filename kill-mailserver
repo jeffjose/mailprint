@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Kill all mailserver instances
+
+echo "🔍 Finding mail server processes..."
+
+# Find and kill processes by name patterns
+pkill -9 -f "mailserver" 2>/dev/null
+pkill -9 -f "simple_mailserver" 2>/dev/null
+pkill -9 -f "working_tls_server" 2>/dev/null
+pkill -9 -f "tls_mailserver" 2>/dev/null
+
+# Also kill any Python processes on mail ports
+for port in 25 587 2525; do
+    pid=$(ss -tlnp 2>/dev/null | grep ":$port" | grep -oP '(?<=pid=)\d+' | head -1)
+    if [ ! -z "$pid" ]; then
+        echo "  Killing process $pid on port $port"
+        kill -9 $pid 2>/dev/null
+    fi
+done
+
+# Kill any remaining Python/uv processes that might be mail servers
+pkill -9 -f "uv run.*mailserver" 2>/dev/null
+pkill -9 -f "python.*mailserver" 2>/dev/null
+pkill -9 -f "python3.*mailserver" 2>/dev/null
+
+echo "✅ All mail server processes killed"
+
+# Verify no processes are listening on mail ports
+echo ""
+echo "📋 Checking mail ports:"
+for port in 25 587 2525; do
+    if ss -tlnp 2>/dev/null | grep -q ":$port"; then
+        echo "  ⚠️  Port $port is still in use"
+        ss -tlnp 2>/dev/null | grep ":$port"
+    else
+        echo "  ✓ Port $port is free"
+    fi
+done
