@@ -2,15 +2,29 @@
 
 # Kill all mailserver instances
 
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then 
+    echo "⚠️  Please run with sudo: sudo $0"
+    exit 1
+fi
+
 echo "🔍 Finding mail server processes..."
 
-# Find and kill processes by name patterns
-pkill -9 -f "mailserver" 2>/dev/null
-pkill -9 -f "simple_mailserver" 2>/dev/null
-pkill -9 -f "working_tls_server" 2>/dev/null
-pkill -9 -f "tls_mailserver" 2>/dev/null
+# Kill all processes containing mailserver in command line
+for pid in $(ps aux | grep -E 'mailserver|simple_mailserver|working_tls_server|tls_mailserver' | grep -v grep | awk '{print $2}'); do
+    echo "  Killing PID $pid"
+    kill -9 $pid 2>/dev/null
+done
 
-# Also kill any Python processes on mail ports
+# Kill uv processes running mailserver
+pkill -9 -f "uv.*mailserver" 2>/dev/null
+pkill -9 -f "uv run.*mailserver" 2>/dev/null
+
+# Kill Python processes running mailserver
+pkill -9 -f "python.*mailserver" 2>/dev/null
+pkill -9 -f "python3.*mailserver" 2>/dev/null
+
+# Also kill any processes on mail ports
 for port in 25 587 2525; do
     pid=$(ss -tlnp 2>/dev/null | grep ":$port" | grep -oP '(?<=pid=)\d+' | head -1)
     if [ ! -z "$pid" ]; then
@@ -18,11 +32,6 @@ for port in 25 587 2525; do
         kill -9 $pid 2>/dev/null
     fi
 done
-
-# Kill any remaining Python/uv processes that might be mail servers
-pkill -9 -f "uv run.*mailserver" 2>/dev/null
-pkill -9 -f "python.*mailserver" 2>/dev/null
-pkill -9 -f "python3.*mailserver" 2>/dev/null
 
 echo "✅ All mail server processes killed"
 
